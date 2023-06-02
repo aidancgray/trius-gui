@@ -1,0 +1,8 @@
+astropy==4.3.1
+importlib-metadata==6.6.0
+numpy==1.21.6
+pyds9==1.9.dev0
+pyerfa==2.0.0.3
+typing_extensions==4.6.2
+watchdog==3.0.0
+zipp==3.15.0
