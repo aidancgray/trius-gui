@@ -4,37 +4,41 @@ import logging
 import shlex
 import sys
 
-import camGUI
-from asyncTCP_client import asyncTCP_client
 from camGUI import camGUI_App
 
+LOGNAME = 'trius'
+
 def custom_except_hook(loop, context):
-    logger = logging.getLogger('fodo')
-    logger.setLevel(logging.WARN)
-    
-    if repr(context['exception']) == 'SystemExit()':
-        logger.debug('Exiting Program...')
+    logger = logging.getLogger(LOGNAME)
+    logger.setLevel(logging.WARNING)
+    logger.warning(context['message'])
+    # if "Task was destroyed" in repr(context['message']):
+    #     logger.warning('Exiting Program...')
 
 async def runTriusCam(loop, opts):
     logging.basicConfig(datefmt = "%Y-%m-%d %H:%M:%S",
                         format = '%(asctime)s.%(msecs)03dZ ' \
                                 '%(name)-10s %(levelno)s ' \
                                 '%(filename)s:%(lineno)d %(message)s')
-    
-    logger = logging.getLogger('trius')
+    logName = LOGNAME
+    logger = logging.getLogger(logName)
     logger.setLevel(opts.logLevel)
     logger.debug('~~~~~~starting log~~~~~~')
-    host = '172.16.1.127'
-    port = 9999
 
-    inQ = asyncio.Queue()   # Incoming data queue
-    outQ = asyncio.Queue()  # Outgoing data queue
-    tcpClient = asyncTCP_client(host, port, inQ, outQ)
-    triusGUI = camGUI_App(inQ, outQ)
+    qIn = asyncio.Queue(maxsize=10)     # Incoming data queue
+    qOut = asyncio.Queue(maxsize=10)    # Outgoing data queue
 
-    await asyncio.gather(tcpClient.tcp_echo_client(),
-                         triusGUI().exec()
-                         )
+    tasks = [
+        asyncio.create_task(camGUI_App(logName, qIn, qOut).exec())
+        ]
+    taskGroup = asyncio.gather(*tasks)
+    try:
+        await taskGroup
+    except Exception as e:
+        logger.setLevel(logging.WARNING)
+        logger.warn(f'Exception: {e}\nExiting Program...')
+        for task in tasks:
+            task.cancel()
 
 def main(argv=None):
     if argv is None:
